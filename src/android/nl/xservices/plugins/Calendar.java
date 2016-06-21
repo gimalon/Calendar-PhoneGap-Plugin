@@ -42,13 +42,17 @@ public class Calendar extends CordovaPlugin {
   private static final String ACTION_OPEN_CALENDAR = "openCalendar";
   private static final String ACTION_CREATE_EVENT_WITH_OPTIONS = "createEventWithOptions";
   private static final String ACTION_CREATE_EVENT_INTERACTIVELY = "createEventInteractively";
+  private static final String ACTION_MODIFY_EVENT_WITH_ID = "modifyEventWithId";
   private static final String ACTION_DELETE_EVENT = "deleteEvent";
+  private static final String ACTION_DELETE_EVENT_WITH_ID = "deleteEventWithId";
   private static final String ACTION_FIND_EVENT_WITH_OPTIONS = "findEventWithOptions";
   private static final String ACTION_LIST_EVENTS_IN_RANGE = "listEventsInRange";
   private static final String ACTION_LIST_CALENDARS = "listCalendars";
   private static final String ACTION_CREATE_CALENDAR = "createCalendar";
 
   // write permissions
+  private static final int PERMISSION_REQCODE_DELETE_EVENT_WITH_ID = 98;
+  private static final int PERMISSION_REQCODE_MODIFY_EVENT_WITH_ID = 99;
   private static final int PERMISSION_REQCODE_CREATE_CALENDAR = 100;
   private static final int PERMISSION_REQCODE_DELETE_EVENT = 101;
   private static final int PERMISSION_REQCODE_CREATE_EVENT = 102;
@@ -91,6 +95,9 @@ public class Calendar extends CordovaPlugin {
     } else if (ACTION_CREATE_EVENT_INTERACTIVELY.equals(action)) {
       createEventInteractively(args);
       return true;
+    } else if (ACTION_MODIFY_EVENT_WITH_ID.equals(action)) {
+      modifyEventWithId(args);
+      return true;
     } else if (ACTION_LIST_EVENTS_IN_RANGE.equals(action)) {
       listEventsInRange(args);
       return true;
@@ -99,6 +106,9 @@ public class Calendar extends CordovaPlugin {
       return true;
     } else if (!hasLimitedSupport && ACTION_DELETE_EVENT.equals(action)) {
       deleteEvent(args);
+      return true;
+    } else if (!hasLimitedSupport && ACTION_DELETE_EVENT_WITH_ID.equals(action)) {
+      deleteEventWithId(args);
       return true;
     } else if (ACTION_LIST_CALENDARS.equals(action)) {
       listCalendars();
@@ -187,8 +197,12 @@ public class Calendar extends CordovaPlugin {
       createCalendar(requestArgs);
     } else if (requestCode == PERMISSION_REQCODE_CREATE_EVENT) {
       createEvent(requestArgs);
+    } else if (requestCode == PERMISSION_REQCODE_MODIFY_EVENT_WITH_ID) {
+      modifyEventWithId(requestArgs);
     } else if (requestCode == PERMISSION_REQCODE_DELETE_EVENT) {
       deleteEvent(requestArgs);
+    } else if (requestCode == PERMISSION_REQCODE_DELETE_EVENT_WITH_ID) {
+      deleteEventWithId(requestArgs);
     } else if (requestCode == PERMISSION_REQCODE_FIND_EVENTS) {
       findEvents(requestArgs);
     } else if (requestCode == PERMISSION_REQCODE_LIST_CALENDARS) {
@@ -417,6 +431,38 @@ public class Calendar extends CordovaPlugin {
     }
   }
 
+  private void deleteEventWithId(JSONArray args) {
+    if (args.length() == 0) {
+      System.err.println("Exception: No Arguments passed");
+      return;
+    }
+
+    if (!calendarPermissionGranted(Manifest.permission.WRITE_CALENDAR)) {
+      requestWritePermission(PERMISSION_REQCODE_DELETE_EVENT_WITH_ID);
+      return;
+    }
+
+    try {
+      final JSONObject jsonFilter = args.getJSONObject(0);
+
+      cordova.getThreadPool().execute(new Runnable() {
+        @Override
+        public void run() {
+
+          boolean deleteResult = getCalendarAccessor().deleteEventWithId(
+              jsonFilter.optInt("id"),
+              null);
+          PluginResult res = new PluginResult(PluginResult.Status.OK, deleteResult);
+          res.setKeepCallback(true);
+          callback.sendPluginResult(res);
+        }
+      });
+    } catch (JSONException e) {
+      System.err.println("Exception: " + e.getMessage());
+      callback.error(e.getMessage());
+    }
+  }
+
   private void findEvents(JSONArray args) {
     if (args.length() == 0) {
       System.err.println("Exception: No Arguments passed");
@@ -486,6 +532,49 @@ public class Calendar extends CordovaPlugin {
             callback.success(createdEventID);
           } catch (JSONException e) {
             e.printStackTrace();
+          }
+        }
+      });
+    } catch (Exception e) {
+      Log.e(LOG_TAG, "Error creating event. Invoking error callback.", e);
+      callback.error(e.getMessage());
+    }
+  }
+
+  private void modifyEventWithId(JSONArray args) {
+    if (!calendarPermissionGranted(Manifest.permission.WRITE_CALENDAR)) {
+      requestWritePermission(PERMISSION_REQCODE_MODIFY_EVENT_WITH_ID);
+      return;
+    }
+
+    try {
+      final JSONObject argObject = args.getJSONObject(0);
+      final JSONObject argOptionsObject = argObject.getJSONObject("options");
+
+      cordova.getThreadPool().execute(new Runnable() {
+        @Override
+        public void run() {
+          try {
+            final boolean modifyResult = getCalendarAccessor().modifyEventWithId(
+                argObject.getInt("id"),
+                null,
+                getPossibleNullString("title", argObject),
+                argObject.getLong("startTime"),
+                argObject.getLong("endTime"),
+                getPossibleNullString("notes", argObject),
+                getPossibleNullString("location", argObject),
+                getPossibleNullString("recurrence", argOptionsObject),
+                argOptionsObject.optInt("recurrenceInterval"),
+                argOptionsObject.optLong("recurrenceEndTime"),
+                argOptionsObject.optInt("calendarId", 1),
+                getPossibleNullString("url", argOptionsObject));
+
+            PluginResult res = new PluginResult(PluginResult.Status.OK, modifyResult);
+            res.setKeepCallback(true);
+            callback.sendPluginResult(res);
+          } catch (JSONException e) {
+            Log.e(LOG_TAG, "Error creating event. Invoking error callback.", e);
+            callback.error(e.getMessage());
           }
         }
       });

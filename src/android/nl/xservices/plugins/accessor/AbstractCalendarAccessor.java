@@ -402,6 +402,7 @@ public abstract class AbstractCalendarAccessor {
     for (Event instance : instances) {
       Event event = eventMap.get(instance.eventId);
       if (event != null) {
+        instance.id = instance.eventId; // In the merged event we need the event id, not the instance id
         instance.message = event.message;
         instance.location = event.location;
         instance.title = event.title;
@@ -430,45 +431,29 @@ public abstract class AbstractCalendarAccessor {
     return nrDeletedRecords > 0;
   }
 
+  public boolean deleteEventWithId(int id, Uri eventsUri) {
+    Log.d(LOG_TAG, "Delete event with ID " + id);
+
+    ContentResolver resolver = this.cordova.getActivity().getApplicationContext().getContentResolver();
+    Uri eventUri = ContentUris.withAppendedId(eventsUri, id);
+    int rows = resolver.delete(eventUri, null, null);
+
+    if (rows > 0) {
+      Log.d(LOG_TAG, "Events deleted, count: " + rows);
+      return true;
+    } else {
+      Log.d(LOG_TAG, "No events found and no event found with id: " + id);
+      return false;
+    }
+  }
+
   public String createEvent(Uri eventsUri, String title, long startTime, long endTime, String description,
                             String location, Long firstReminderMinutes, Long secondReminderMinutes,
                             String recurrence, int recurrenceInterval, Long recurrenceEndTime, Integer calendarId, String url) {
     ContentResolver cr = this.cordova.getActivity().getContentResolver();
-    ContentValues values = new ContentValues();
-    final boolean allDayEvent = isAllDayEvent(new Date(startTime), new Date(endTime));
-    if (allDayEvent) {
-      //all day events must be in UTC time zone per Android specification, getOffset accounts for daylight savings time
-      values.put(Events.EVENT_TIMEZONE, "UTC");
-      values.put(Events.DTSTART, startTime + TimeZone.getDefault().getOffset(startTime));
-      values.put(Events.DTEND, endTime + TimeZone.getDefault().getOffset(endTime));
-    } else {
-      values.put(Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
-      values.put(Events.DTSTART, startTime);
-      values.put(Events.DTEND, endTime);
-    }
-    values.put(Events.ALL_DAY, allDayEvent ? 1 : 0);
-    values.put(Events.TITLE, title);
-    // there's no separate url field, so adding it to the notes
-    if (url != null) {
-      if (description == null) {
-        description = url;
-      } else {
-        description += " " + url;
-      }
-    }
-    values.put(Events.DESCRIPTION, description);
+    ContentValues values = generateEventValues(title, startTime, endTime, description, location, recurrence,
+            recurrenceInterval, recurrenceEndTime, calendarId, url);
     values.put(Events.HAS_ALARM, firstReminderMinutes > -1 || secondReminderMinutes > -1 ? 1 : 0);
-    values.put(Events.CALENDAR_ID, calendarId);
-    values.put(Events.EVENT_LOCATION, location);
-
-    if (recurrence != null) {
-      if (recurrenceEndTime == null) {
-        values.put(Events.RRULE, "FREQ=" + recurrence.toUpperCase() + ";INTERVAL=" + recurrenceInterval);
-      } else {
-        final SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd'T'hhmmss'Z'");
-        values.put(Events.RRULE, "FREQ=" + recurrence.toUpperCase() + ";INTERVAL=" + recurrenceInterval + ";UNTIL=" + sdf.format(new Date(recurrenceEndTime)));
-      }
-    }
 
     // runtime exceptions are dealt with by the caller
     Uri uri = cr.insert(eventsUri, values);
@@ -495,6 +480,74 @@ public abstract class AbstractCalendarAccessor {
       Log.e(LOG_TAG, "Creating reminders failed, ignoring since the event was created.", e);
     }
     return createdEventID;
+  }
+
+  public boolean modifyEventWithId(
+          int id, Uri eventsUri,
+          String title, long startTime, long endTime, String description,
+          String location, String recurrence, int recurrenceInterval, Long recurrenceEndTime, Integer calendarId,
+          String url) {
+
+    Log.d(LOG_TAG, "Update event with ID " + id);
+
+    ContentResolver resolver = this.cordova.getActivity().getApplicationContext().getContentResolver();
+
+    ContentValues values = generateEventValues(title, startTime, endTime, description, location, recurrence,
+            recurrenceInterval, recurrenceEndTime, calendarId, url);
+
+    Uri updateUri = ContentUris.withAppendedId(eventsUri, id);
+    int rows = resolver.update(updateUri, values, null, null);
+
+    if (rows > 0) {
+      Log.d(LOG_TAG, "Events updated: " + rows);
+      return true;
+    } else {
+      Log.d(LOG_TAG, "No events found and no event found with id: " + id);
+      return false;
+    }
+  }
+
+  private ContentValues generateEventValues(String title, long startTime, long endTime, String description,
+                                            String location, String recurrence, int recurrenceInterval,
+                                            Long recurrenceEndTime, Integer calendarId, String url) {
+    ContentValues values = new ContentValues();
+
+    final boolean allDayEvent = isAllDayEvent(new Date(startTime), new Date(endTime));
+    if (allDayEvent) {
+      //all day events must be in UTC time zone per Android specification, getOffset accounts for daylight savings time
+      values.put(Events.EVENT_TIMEZONE, "UTC");
+      values.put(Events.DTSTART, startTime + TimeZone.getDefault().getOffset(startTime));
+      values.put(Events.DTEND, endTime + TimeZone.getDefault().getOffset(endTime));
+    } else {
+      values.put(Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
+      values.put(Events.DTSTART, startTime);
+      values.put(Events.DTEND, endTime);
+    }
+    values.put(Events.ALL_DAY, allDayEvent ? 1 : 0);
+    values.put(Events.TITLE, title);
+    // there's no separate url field, so adding it to the notes
+    if (url != null) {
+      if (description == null) {
+        description = url;
+      } else {
+        description += " " + url;
+      }
+    }
+    values.put(Events.DESCRIPTION, description);
+    if (calendarId != null) {
+      values.put(Events.CALENDAR_ID, calendarId);
+    }
+    values.put(Events.EVENT_LOCATION, location);
+
+    if (recurrence != null) {
+      if (recurrenceEndTime == null) {
+        values.put(Events.RRULE, "FREQ=" + recurrence.toUpperCase() + ";INTERVAL=" + recurrenceInterval);
+      } else {
+        final SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd'T'hhmmss'Z'");
+        values.put(Events.RRULE, "FREQ=" + recurrence.toUpperCase() + ";INTERVAL=" + recurrenceInterval + ";UNTIL=" + sdf.format(new Date(recurrenceEndTime)));
+      }
+    }
+    return values;
   }
 
   public void createCalendar(String calendarName) {

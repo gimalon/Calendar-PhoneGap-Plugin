@@ -46,9 +46,17 @@
   NSNumber* endTime    = [options objectForKey:@"endTime"];
 
   [self.commandDelegate runInBackground: ^{
+    NSCalendar *gregorianCalendar = [[NSCalendar alloc]
+                                    initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
+    NSCalendarUnit units = NSCalendarUnitYear | NSCalendarUnitMonth | NSCalendarUnitDay | NSCalendarUnitHour | NSCalendarUnitMinute | NSCalendarUnitSecond;
+
     NSTimeInterval _startInterval = [startTime doubleValue] / 1000; // strip millis
     NSDate *myStartDate = [NSDate dateWithTimeIntervalSince1970:_startInterval];
+    NSDateComponents *startDateComponents = [gregorianCalendar components:units fromDate:myStartDate];
+
     NSTimeInterval _endInterval = [endTime doubleValue] / 1000; // strip millis
+    NSDate *myEndDate = [NSDate dateWithTimeIntervalSince1970:_endInterval];
+    NSDateComponents *endDateComponents = [gregorianCalendar components:units fromDate:myEndDate];
 
     EKEvent *myEvent = [EKEvent eventWithEventStore: self.eventStore];
     myEvent.title = title;
@@ -56,9 +64,8 @@
     myEvent.notes = notes;
     myEvent.startDate = myStartDate;
 
-    int duration = _endInterval - _startInterval;
-    int moduloDay = duration % (60 * 60 * 24);
-    if (moduloDay == 0) {
+    if (startDateComponents.hour == 0 && startDateComponents.minute == 0 && startDateComponents.second == 0
+        && endDateComponents.hour == 0 && endDateComponents.minute == 0 && endDateComponents.second == 0) {
       myEvent.allDay = YES;
       myEvent.endDate = [NSDate dateWithTimeIntervalSince1970:_endInterval - 1];
     } else {
@@ -257,6 +264,119 @@
 
 }
 
+- (void) modifyEventWithId:(CDVInvokedUrlCommand*)command {
+  NSDictionary* options   = [command.arguments objectAtIndex:0];
+  NSString* calEventID    = [options objectForKey:@"id"];
+  NSString* ntitle        = [options objectForKey:@"title"];
+  NSString* nlocation     = [options objectForKey:@"location"];
+  NSString* nnotes        = [options objectForKey:@"notes"];
+  NSNumber* nstartTime    = [options objectForKey:@"startTime"];
+  NSNumber* nendTime      = [options objectForKey:@"endTime"];
+
+  NSDateFormatter *df = [[NSDateFormatter alloc] init];
+  [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+
+  [self.commandDelegate runInBackground: ^{
+      NSCalendar *gregorianCalendar = [[NSCalendar alloc]
+                                      initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
+      NSCalendarUnit units = NSCalendarUnitYear | NSCalendarUnitMonth | NSCalendarUnitDay | NSCalendarUnitHour | NSCalendarUnitMinute | NSCalendarUnitSecond;
+
+      // Find match
+      EKEvent *theEvent = [self.eventStore calendarItemWithIdentifier:calEventID];
+
+      CDVPluginResult *pluginResult = nil;
+      if (theEvent != nil) {
+          NSDictionary* calOptions = [options objectForKey:@"options"];
+          NSString* ncalendarName = [calOptions objectForKey:@"calendarName"];
+
+          if (ncalendarName != (id)[NSNull null]) {
+            theEvent.calendar = [self findEKCalendar:ncalendarName];
+            if (theEvent.calendar == nil) {
+              pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Could not find calendar passed in newOptions object"];
+              [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+              return;
+            }
+          }
+
+          if (ntitle) {
+            theEvent.title = ntitle;
+          }
+          if (nlocation) {
+            theEvent.location = nlocation;
+          }
+          if (nnotes) {
+            theEvent.notes = nnotes;
+          }
+          if (nendTime) {
+            NSTimeInterval _nendInterval = [nendTime doubleValue] / 1000; // strip millis
+            NSDate *myNEndDate = [NSDate dateWithTimeIntervalSince1970:_nendInterval];
+            NSDateComponents *nendDateComponents = [gregorianCalendar components:units fromDate:myNEndDate];
+
+            if (nstartTime) {
+                NSTimeInterval _nstartInterval = [nstartTime doubleValue] / 1000; // strip millis
+                NSDate *myNStartDate = [NSDate dateWithTimeIntervalSince1970:_nstartInterval];
+                NSDateComponents *nstartDateComponents = [gregorianCalendar components:units fromDate:myNStartDate];
+
+                if (nstartDateComponents.hour == 0 && nstartDateComponents.minute == 0 && nstartDateComponents.second == 0
+                    && nendDateComponents.hour == 0 && nendDateComponents.minute == 0 && nendDateComponents.second == 0) {
+                    theEvent.allDay = YES;
+                    theEvent.endDate = [NSDate dateWithTimeIntervalSince1970:_nendInterval - 1];
+                } else {
+                    theEvent.allDay = NO;
+                    theEvent.endDate = [NSDate dateWithTimeIntervalSince1970:_nendInterval];
+                }
+            } else {
+                theEvent.endDate = [NSDate dateWithTimeIntervalSince1970:_nendInterval];
+            }
+          }
+          // call after setting endTime because it depends on the allDay property
+          if (nstartTime) {
+            NSTimeInterval _nstartInterval = [nstartTime doubleValue] / 1000; // strip millis
+            theEvent.startDate = [NSDate dateWithTimeIntervalSince1970:_nstartInterval];
+          }
+
+          NSString* recurrence = [calOptions objectForKey:@"recurrence"];
+          NSNumber* intervalAmount = [calOptions objectForKey:@"recurrenceInterval"];
+
+          if (recurrence != (id)[NSNull null]) {
+            EKRecurrenceRule *rule = [[EKRecurrenceRule alloc] initRecurrenceWithFrequency: [self toEKRecurrenceFrequency:recurrence]
+                                                                                  interval: intervalAmount.integerValue
+                                                                                       end: nil];
+            NSString* recurrenceEndTime = [calOptions objectForKey:@"recurrenceEndTime"];
+            if (recurrenceEndTime != nil) {
+              NSTimeInterval _recurrenceEndTimeInterval = [recurrenceEndTime doubleValue] / 1000; // strip millis
+              NSDate *myRecurrenceEndDate = [NSDate dateWithTimeIntervalSince1970:_recurrenceEndTimeInterval];
+              EKRecurrenceEnd *end = [EKRecurrenceEnd recurrenceEndWithEndDate:myRecurrenceEndDate];
+              rule.recurrenceEnd = end;
+            }
+            [theEvent addRecurrenceRule:rule];
+          }
+          NSString* url = [calOptions objectForKey:@"url"];
+          if (url != (id)[NSNull null]) {
+            NSURL* myUrl = [NSURL URLWithString:url];
+            theEvent.URL = myUrl;
+          }
+
+          // Now save the new details back to the store
+          NSError *error = nil;
+          [self.eventStore saveEvent:theEvent span:EKSpanThisEvent error:&error];
+
+
+          // Check error code + return result
+          if (error) {
+            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:error.userInfo.description];
+          } else {
+            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:theEvent.calendarItemIdentifier];
+          }
+      } else {
+        // Otherwise return a no result error (could be more than 1, but not a biggie)
+        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
+      }
+      [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+  }];
+
+}
+
 
 - (void) deleteEventFromCalendar:(CDVInvokedUrlCommand*)command
                        calendar: (EKCalendar *) calendar {
@@ -289,6 +409,32 @@
       pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:error.userInfo.description];
     } else {
       pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[@"Deleted from " stringByAppendingString:calendar.title]];
+    }
+
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+  }];
+}
+
+- (void) deleteEventWithId:(CDVInvokedUrlCommand*)command {
+
+  NSDictionary* options = [command.arguments objectAtIndex:0];
+  NSString* calEventID  = [options objectForKey:@"id"];
+
+  [self.commandDelegate runInBackground: ^{
+
+    EKEvent *eventToRemove = [self.eventStore calendarItemWithIdentifier:calEventID];
+    CDVPluginResult *pluginResult = nil;
+    if (eventToRemove != nil) {
+      NSError* error = nil;
+      [self.eventStore removeEvent:eventToRemove span:EKSpanThisEvent error:&error];
+
+      if (error != nil) {
+        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:error.userInfo.description];
+      } else {
+        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"Deleted"];
+      }
+    } else {
+      pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Event not found"];
     }
 
     [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
@@ -469,25 +615,31 @@
   NSString* url = [calOptions objectForKey:@"url"];
 
   [self.commandDelegate runInBackground: ^{
+    NSCalendar *gregorianCalendar = [[NSCalendar alloc]
+                                    initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
+    NSCalendarUnit units = NSCalendarUnitYear | NSCalendarUnitMonth | NSCalendarUnitDay | NSCalendarUnitHour | NSCalendarUnitMinute | NSCalendarUnitSecond;
+
+    NSTimeInterval _startInterval = [startTime doubleValue] / 1000; // strip millis
+    NSDate *myStartDate = [NSDate dateWithTimeIntervalSince1970:_startInterval];
+    NSDateComponents *startDateComponents = [gregorianCalendar components:units fromDate:myStartDate];
+
+    NSTimeInterval _endInterval = [endTime doubleValue] / 1000; // strip millis
+    NSDate *myEndDate = [NSDate dateWithTimeIntervalSince1970:_endInterval];
+    NSDateComponents *endDateComponents = [gregorianCalendar components:units fromDate:myEndDate];
+
     EKEvent *myEvent = [EKEvent eventWithEventStore: self.eventStore];
     if (url != (id)[NSNull null]) {
       NSURL* myUrl = [NSURL URLWithString:url];
       myEvent.URL = myUrl;
     }
 
-    NSTimeInterval _startInterval = [startTime doubleValue] / 1000; // strip millis
-    NSDate *myStartDate = [NSDate dateWithTimeIntervalSince1970:_startInterval];
-
-    NSTimeInterval _endInterval = [endTime doubleValue] / 1000; // strip millis
-
     myEvent.title = title;
     myEvent.location = location;
     myEvent.notes = notes;
     myEvent.startDate = myStartDate;
 
-    int duration = _endInterval - _startInterval;
-    int moduloDay = duration % (60*60*24);
-    if (moduloDay == 0) {
+    if (startDateComponents.hour == 0 && startDateComponents.minute == 0 && startDateComponents.second == 0
+        && endDateComponents.hour == 0 && endDateComponents.minute == 0 && endDateComponents.second == 0) {
       myEvent.allDay = YES;
       myEvent.endDate = [NSDate dateWithTimeIntervalSince1970:_endInterval-1];
     } else {
@@ -582,19 +734,27 @@
     myEvent.URL = myUrl;
   }
 
+  NSCalendar *gregorianCalendar = [[NSCalendar alloc]
+                                  initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
+  NSCalendarUnit units = NSCalendarUnitYear | NSCalendarUnitMonth | NSCalendarUnitDay | NSCalendarUnitHour | NSCalendarUnitMinute | NSCalendarUnitSecond;
+
   if (startTime != (id)[NSNull null]) {
-  NSTimeInterval _startInterval = [startTime doubleValue] / 1000; // strip millis
-  NSDate *myStartDate = [NSDate dateWithTimeIntervalSince1970:_startInterval];
+    NSTimeInterval _startInterval = [startTime doubleValue] / 1000; // strip millis
+    NSDate *myStartDate = [NSDate dateWithTimeIntervalSince1970:_startInterval];
     myEvent.startDate = myStartDate;
   }
 
   if (endTime != (id)[NSNull null]) {
-  NSTimeInterval _endInterval = [endTime doubleValue] / 1000; // strip millis
+    NSTimeInterval _endInterval = [endTime doubleValue] / 1000; // strip millis
+    NSDate *myEndDate = [NSDate dateWithTimeIntervalSince1970:_endInterval];
+    NSDateComponents *endDateComponents = [gregorianCalendar components:units fromDate:myEndDate];
     if (startTime != (id)[NSNull null]) {
       NSTimeInterval _startInterval = [startTime doubleValue] / 1000; // strip millis
-      int duration = _endInterval - _startInterval;
-      int moduloDay = duration % (60 * 60 * 24);
-      if (moduloDay == 0) {
+      NSDate *myStartDate = [NSDate dateWithTimeIntervalSince1970:_startInterval];
+      NSDateComponents *startDateComponents = [gregorianCalendar components:units fromDate:myStartDate];
+
+      if (startDateComponents.hour == 0 && startDateComponents.minute == 0 && startDateComponents.second == 0
+        && endDateComponents.hour == 0 && endDateComponents.minute == 0 && endDateComponents.second == 0) {
         myEvent.allDay = YES;
         myEvent.endDate = [NSDate dateWithTimeIntervalSince1970:_endInterval - 1];
       } else {

@@ -121,6 +121,12 @@ public class LegacyCalendarAccessor extends AbstractCalendarAccessor {
   }
 
   @Override
+  public boolean deleteEventWithId(int id, Uri eventsUri) {
+    eventsUri = eventsUri == null ? Uri.parse(CONTENT_PROVIDER_PRE_FROYO + CONTENT_PROVIDER_PATH_EVENTS) : eventsUri;
+    return super.deleteEventWithId(id, eventsUri);
+  }
+
+  @Override
   public String createEvent(Uri eventsUri, String title, long startTime, long endTime,
                           String description, String location, Long firstReminderMinutes, Long secondReminderMinutes,
                           String recurrence, int recurrenceInterval, Long recurrenceEndTime, Integer calendarId,
@@ -130,4 +136,12 @@ public class LegacyCalendarAccessor extends AbstractCalendarAccessor {
         firstReminderMinutes, secondReminderMinutes, recurrence, recurrenceInterval, recurrenceEndTime, calendarId, url);
   }
 
+  @Override
+  public boolean modifyEventWithId(int id, Uri eventsUri, String title, long startTime, long endTime,
+                                   String description, String location, String recurrence, int recurrenceInterval,
+                                   Long recurrenceEndTime, Integer calendarId, String url) {
+    eventsUri = eventsUri == null ? Uri.parse(CONTENT_PROVIDER_PRE_FROYO + CONTENT_PROVIDER_PATH_EVENTS) : eventsUri;
+    return super.modifyEventWithId(id, eventsUri, title, startTime, endTime, description, location,
+            recurrence, recurrenceInterval, recurrenceEndTime, calendarId, url);
+  }
 }
