@@ -478,6 +478,7 @@ public class Calendar extends CordovaPlugin {
 
     try {
       final JSONObject jsonFilter = args.getJSONObject(0);
+      final JSONObject options = jsonFilter.getJSONObject("options");
 
       cordova.getThreadPool().execute(new Runnable() {
         @Override
@@ -486,7 +487,9 @@ public class Calendar extends CordovaPlugin {
               getPossibleNullString("title", jsonFilter),
               getPossibleNullString("location", jsonFilter),
               jsonFilter.optLong("startTime"),
-              jsonFilter.optLong("endTime"));
+              jsonFilter.optLong("endTime"),
+              options != null ? getPossibleNullString("calendarId", options): null
+          );
 
           PluginResult res = new PluginResult(PluginResult.Status.OK, jsonEvents);
           res.setKeepCallback(true);

@@ -75,6 +75,7 @@ public abstract class AbstractCalendarAccessor {
     // attribute DOMString reminder;
 
     String eventId;
+    String calendarId;
     boolean recurring = false;
     boolean allDay;
     ArrayList<Attendee> attendees;
@@ -83,6 +84,7 @@ public abstract class AbstractCalendarAccessor {
       JSONObject obj = new JSONObject();
       try {
         obj.put("id", this.id);
+        obj.put("calendarId", this.calendarId); //hallo welt 2
         obj.putOpt("message", this.message);
         obj.putOpt("location", this.location);
         obj.putOpt("title", this.title);
@@ -285,14 +287,15 @@ public abstract class AbstractCalendarAccessor {
       return null;
     }
     String[] projection = new String[]{
-        this.getKey(KeyIndex.EVENTS_ID),
-        this.getKey(KeyIndex.EVENTS_DESCRIPTION),
-        this.getKey(KeyIndex.EVENTS_LOCATION),
-        this.getKey(KeyIndex.EVENTS_SUMMARY),
-        this.getKey(KeyIndex.EVENTS_START),
-        this.getKey(KeyIndex.EVENTS_END),
-        this.getKey(KeyIndex.EVENTS_RRULE),
-        this.getKey(KeyIndex.EVENTS_ALL_DAY)
+        this.getKey(KeyIndex.EVENTS_ID),            // 0
+        this.getKey(KeyIndex.EVENTS_DESCRIPTION),   // 1
+        this.getKey(KeyIndex.EVENTS_LOCATION),      // 2
+        this.getKey(KeyIndex.EVENTS_SUMMARY),       // 3
+        this.getKey(KeyIndex.EVENTS_START),         // 4
+        this.getKey(KeyIndex.EVENTS_END),           // 5
+        this.getKey(KeyIndex.EVENTS_RRULE),         // 6
+        this.getKey(KeyIndex.EVENTS_ALL_DAY),       // 7
+        this.getKey(KeyIndex.EVENTS_CALENDAR_ID)    // 8
     };
     // Get all the ids at once from active calendars.
     StringBuffer select = new StringBuffer();
@@ -320,6 +323,7 @@ public abstract class AbstractCalendarAccessor {
       do {
         Event event = new Event();
         event.id = cursor.getString(cols[0]);
+        event.calendarId = String.valueOf(cursor.getInt(cols[8]));
         event.message = cursor.getString(cols[1]);
         event.location = cursor.getString(cols[2]);
         event.title = cursor.getString(cols[3]);
@@ -386,7 +390,7 @@ public abstract class AbstractCalendarAccessor {
     return attendeeMap;
   }
 
-  public JSONArray findEvents(String title, String location, long startFrom, long startTo) {
+  public JSONArray findEvents(String title, String location, long startFrom, long startTo, String calendarId) {
     JSONArray result = new JSONArray();
     // Fetch events from the instance table.
     Event[] instances = fetchEventInstances(title, location, startFrom, startTo);
@@ -403,6 +407,10 @@ public abstract class AbstractCalendarAccessor {
       Event event = eventMap.get(instance.eventId);
       if (event != null) {
         instance.id = instance.eventId; // In the merged event we need the event id, not the instance id
+        instance.calendarId = event.calendarId;
+        if(calendarId != null && !instance.calendarId.equals(calendarId))
+          continue;
+
         instance.message = event.message;
         instance.location = event.location;
         instance.title = event.title;
@@ -412,6 +420,7 @@ public abstract class AbstractCalendarAccessor {
         }
         instance.allDay = event.allDay;
         instance.attendees = attendeeMap.get(instance.eventId);
+
         result.put(instance.toJSONObject());
       }
     }

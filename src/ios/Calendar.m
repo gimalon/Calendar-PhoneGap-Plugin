@@ -521,6 +521,7 @@
     NSMutableDictionary *entry = [[NSMutableDictionary alloc] initWithObjectsAndKeys:
                                   event.title, @"title",
                                   event.calendar.title, @"calendar",
+                                  event.calendar.title, @"calendarId",
                                   [df stringFromDate:event.startDate], @"startDate",
                                   [df stringFromDate:event.endDate], @"endDate",
                                   [df stringFromDate:event.lastModifiedDate], @"lastModifiedDate",
@@ -829,6 +830,7 @@
 - (void) deleteEventFromNamedCalendar:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
   NSString* calendarName = [options objectForKey:@"calendarName"];
+  
   EKCalendar* calendar = [self findEKCalendar:calendarName];
 
   if (calendar == nil) {
@@ -887,6 +889,8 @@
   NSDictionary* calOptions = [options objectForKey:@"options"];
   NSString* calEventID = [calOptions objectForKey:@"id"];
   NSString* calendarName = [calOptions objectForKey:@"calendarName"];
+  NSString* calendarId = [calOptions objectForKey:@"calendarId"];
+
 
   [self.commandDelegate runInBackground: ^{
     NSTimeInterval _startInterval = [startTime doubleValue] / 1000; // strip millis
@@ -906,6 +910,9 @@
     }
 
     NSArray* calendars = nil;
+    if (calendarName == (id)[NSNull null] && calendarId != (id)[NSNull null] ) {
+      calendarName = calendarId;
+    }
 
     if (calendarName == (id)[NSNull null]) {
         calendars = [self.eventStore calendarsForEntityType:EKEntityTypeEvent];
