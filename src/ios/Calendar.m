@@ -891,6 +891,9 @@
   NSString* calendarName = [calOptions objectForKey:@"calendarName"];
   NSString* calendarId = [calOptions objectForKey:@"calendarId"];
 
+  if (calendarName == (id)[NSNull null] && calendarId != (id)[NSNull null] ) {
+    calendarName = calendarId;
+  }
 
   [self.commandDelegate runInBackground: ^{
     NSTimeInterval _startInterval = [startTime doubleValue] / 1000; // strip millis
@@ -910,9 +913,6 @@
     }
 
     NSArray* calendars = nil;
-    if (calendarName == (id)[NSNull null] && calendarId != (id)[NSNull null] ) {
-      calendarName = calendarId;
-    }
 
     if (calendarName == (id)[NSNull null]) {
         calendars = [self.eventStore calendarsForEntityType:EKEntityTypeEvent];
