@@ -28,7 +28,7 @@
   } else { // we're on iOS 5 or older
     accessGranted = YES;
   }
-    
+
   if (accessGranted) {
     self.eventStore = eventStoreCandidate;
   }
@@ -486,7 +486,7 @@
 - (EKCalendar*) findEKCalendar: (NSString *)calendarName {
   for (EKCalendar *thisCalendar in [self.eventStore calendarsForEntityType:EKEntityTypeEvent]){
     NSLog(@"Calendar: %@", thisCalendar.title);
-    if ([thisCalendar.title isEqualToString:calendarName]) {
+    if ([thisCalendar.calendarIdentifier isEqualToString:calendarName]) {
       return thisCalendar;
     }
   }
@@ -830,7 +830,7 @@
 - (void) deleteEventFromNamedCalendar:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
   NSString* calendarName = [options objectForKey:@"calendarName"];
-  
+
   EKCalendar* calendar = [self findEKCalendar:calendarName];
 
   if (calendar == nil) {
