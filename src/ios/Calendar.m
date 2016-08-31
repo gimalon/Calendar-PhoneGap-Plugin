@@ -522,6 +522,7 @@
                                   event.title, @"title",
                                   event.calendar.title, @"calendar",
                                   event.calendar.title, @"calendarId",
+                                  [NSNumber numberWithBool:event.allDay], @"allday",
                                   [df stringFromDate:event.startDate], @"startDate",
                                   [df stringFromDate:event.endDate], @"endDate",
                                   [df stringFromDate:event.lastModifiedDate], @"lastModifiedDate",
@@ -533,6 +534,7 @@
     if (event.notes != nil) {
       [entry setObject:event.notes forKey:@"message"];
     }
+    
     if (event.attendees != nil) {
       NSMutableArray * attendees = [[NSMutableArray alloc] init];
       for (EKParticipant * participant in event.attendees) {
