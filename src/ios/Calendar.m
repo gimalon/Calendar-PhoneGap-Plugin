@@ -1,6 +1,8 @@
 #import "Calendar.h"
 #import <Cordova/CDV.h>
+#ifndef TARGET_IS_EXTENSION
 #import <EventKitUI/EventKitUI.h>
+#endif
 #import <EventKit/EventKit.h>
 
 #define SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(v)  ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] != NSOrderedAscending)
@@ -563,6 +565,7 @@
 
 #pragma mark Cordova functions
 
+#ifndef TARGET_IS_EXTENSION
 - (void) openCalendar:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
   NSNumber* date = [options objectForKey:@"date"];
@@ -576,6 +579,7 @@
     [[UIApplication sharedApplication] openURL:url];
   }];
 }
+#endif
 
 - (void) listCalendars:(CDVInvokedUrlCommand*)command {
   [self.commandDelegate runInBackground: ^{
@@ -713,6 +717,7 @@
   }];
 }
 
+#ifndef TARGET_IS_EXTENSION
 - (void) createEventInteractively:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
 
@@ -828,6 +833,7 @@
     });
   }];
 }
+#endif
 
 - (void) deleteEventFromNamedCalendar:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
@@ -1028,6 +1034,7 @@
   }];
 }
 
+#ifndef TARGET_IS_EXTENSION
 - (void) eventEditViewController:(EKEventEditViewController*)controller didCompleteWithAction:(EKEventEditViewAction) action {
   NSError *error = nil;
   CDVPluginResult *pluginResult = nil;
@@ -1058,7 +1065,7 @@
   }
   [self.commandDelegate sendPluginResult:pluginResult callbackId:self.interactiveCallbackId];
 }
-
+#endif
 
 /* There is no distingtion between read and write access in iOS */
 - (void)hasReadPermission:(CDVInvokedUrlCommand*)command {
