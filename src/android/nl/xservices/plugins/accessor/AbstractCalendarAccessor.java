@@ -234,6 +234,7 @@ public abstract class AbstractCalendarAccessor {
         i += 1;
       } while (cursor.moveToNext());
     }
+    cursor.close();
     return instances;
   }
 
@@ -251,8 +252,9 @@ public abstract class AbstractCalendarAccessor {
         calendarIds[i] = cursor.getString(col);
         i += 1;
       } while (cursor.moveToNext());
-      cursor.close();
     }
+
+    cursor.close();
     return calendarIds;
   }
 
@@ -275,8 +277,9 @@ public abstract class AbstractCalendarAccessor {
         calendar.put("name", cursor.getString(cursor.getColumnIndex(this.getKey(KeyIndex.CALENDARS_NAME))));
         calendarsWrapper.put(calendar);
       } while (cursor.moveToNext());
-      cursor.close();
     }
+    cursor.close();
+
     return calendarsWrapper;
   }
 
@@ -333,8 +336,9 @@ public abstract class AbstractCalendarAccessor {
         event.allDay = cursor.getInt(cols[7]) != 0;
         eventsMap.put(event.id, event);
       } while (cursor.moveToNext());
-      cursor.close();
     }
+    cursor.close();
+
     return eventsMap;
   }
 
@@ -385,8 +389,8 @@ public abstract class AbstractCalendarAccessor {
         attendee.status = cursor.getString(cols[4]);
         array.add(attendee);
       } while (cursor.moveToNext());
-      cursor.close();
     }
+    cursor.close();
     return attendeeMap;
   }
 
