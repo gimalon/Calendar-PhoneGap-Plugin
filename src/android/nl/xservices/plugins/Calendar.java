@@ -292,15 +292,16 @@ public class Calendar extends CordovaPlugin {
   }
 
   private void listCalendars(final CallbackContext callback) {
-    // note that if the dev didn't call requestReadPermission before calling this method and calendarPermissionGranted returns false,
-    // the app will ask permission and this method needs to be invoked again (done for backward compat).
-    if (!calendarPermissionGranted(Manifest.permission.READ_CALENDAR)) {
-      requestReadPermission(PERMISSION_REQCODE_LIST_CALENDARS, null, callback);
-      return;
-    }
     cordova.getThreadPool().execute(new Runnable() {
       @Override
       public void run() {
+        // note that if the dev didn't call requestReadPermission before calling this method and calendarPermissionGranted returns false,
+        // the app will ask permission and this method needs to be invoked again (done for backward compat).
+        if (!calendarPermissionGranted(Manifest.permission.READ_CALENDAR)) {
+          requestReadPermission(PERMISSION_REQCODE_LIST_CALENDARS, null, callback);
+          return;
+        }
+
         try {
           JSONArray activeCalendars = Calendar.this.getCalendarAccessor().getActiveCalendars();
           if (activeCalendars == null) {
