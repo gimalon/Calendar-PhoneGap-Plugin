@@ -363,7 +363,7 @@ public class Calendar extends CordovaPlugin {
     }
 
     if (!calendarPermissionGranted(Manifest.permission.WRITE_CALENDAR)) {
-      requestWritePermission(PERMISSION_REQCODE_DELETE_CALENDAR);
+      requestWritePermission(PERMISSION_REQCODE_DELETE_CALENDAR, args, callback);
       return;
     }
 
@@ -568,7 +568,7 @@ public class Calendar extends CordovaPlugin {
           }
 
           JSONArray jsonEvents = getCalendarAccessor().findEvents(
-              getPossibleNullString("id", argOptionsObject),
+              getPossibleNullString("id", options),
               getPossibleNullString("title", jsonFilter),
               getPossibleNullString("location", jsonFilter),
               getPossibleNullString("notes", jsonFilter),

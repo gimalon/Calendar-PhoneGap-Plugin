@@ -309,26 +309,29 @@ public abstract class AbstractCalendarAccessor {
     select.append(")");
     Cursor cursor = queryEvents(projection, select.toString(), null, null);
     Map<String, Event> eventsMap = new HashMap<String, Event>();
-    if (cursor.moveToFirst()) {
-      int[] cols = new int[projection.length];
-      for (int i = 0; i < cols.length; i++) {
-        cols[i] = cursor.getColumnIndex(projection[i]);
+    if(cursor != null) {
+      if (cursor.moveToFirst()) {
+        int[] cols = new int[projection.length];
+        for (int i = 0; i < cols.length; i++) {
+          cols[i] = cursor.getColumnIndex(projection[i]);
+        }
+        do {
+          Event event = new Event();
+          event.id = cursor.getString(cols[0]);
+          event.calendarId = String.valueOf(cursor.getInt(cols[8]));
+          event.message = cursor.getString(cols[1]);
+          event.location = cursor.getString(cols[2]);
+          event.title = cursor.getString(cols[3]);
+          event.startDate = cursor.getString(cols[4]);
+          event.endDate = cursor.getString(cols[5]);
+          event.recurring = !TextUtils.isEmpty(cursor.getString(cols[6]));
+          event.allDay = cursor.getInt(cols[7]) != 0;
+          eventsMap.put(event.id, event);
+        } while (cursor.moveToNext());
       }
-      do {
-        Event event = new Event();
-        event.id = cursor.getString(cols[0]);
-        event.calendarId = String.valueOf(cursor.getInt(cols[8]));
-        event.message = cursor.getString(cols[1]);
-        event.location = cursor.getString(cols[2]);
-        event.title = cursor.getString(cols[3]);
-        event.startDate = cursor.getString(cols[4]);
-        event.endDate = cursor.getString(cols[5]);
-        event.recurring = !TextUtils.isEmpty(cursor.getString(cols[6]));
-        event.allDay = cursor.getInt(cols[7]) != 0;
-        eventsMap.put(event.id, event);
-      } while (cursor.moveToNext());
+
+      cursor.close();
     }
-    cursor.close();
 
     return eventsMap;
   }
