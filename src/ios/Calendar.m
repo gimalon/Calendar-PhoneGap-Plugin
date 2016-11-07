@@ -162,7 +162,7 @@
 
       // Find matches
       if (calEventID != nil) {
-          theEvent = [self.eventStore calendarItemWithIdentifier:calEventID];
+          theEvent = (EKEvent *)[self.eventStore calendarItemWithIdentifier:calEventID];
       }
 
     if (theEvent == nil) {
@@ -486,10 +486,13 @@
 }
 
 - (EKCalendar*) findEKCalendar: (NSString *)calendarName {
-  for (EKCalendar *thisCalendar in [self.eventStore calendarsForEntityType:EKEntityTypeEvent]){
-    NSLog(@"Calendar: %@", thisCalendar.title);
-    if ([thisCalendar.calendarIdentifier isEqualToString:calendarName]) {
-      return thisCalendar;
+  NSArray<EKCalendar *> *calendars = [self.eventStore calendarsForEntityType:EKEntityTypeEvent];
+  if (calendars != nil && calendars.count > 0) {
+    for (EKCalendar *thisCalendar in calendars) {
+      NSLog(@"Calendar: %@", thisCalendar.title);
+      if ([thisCalendar.calendarIdentifier isEqualToString:calendarName]) {
+        return thisCalendar;
+      }
     }
   }
   NSLog(@"No match found for calendar with name: %@", calendarName);
@@ -525,6 +528,7 @@
                                   event.calendar.title, @"calendar",
                                   event.calendar.title, @"calendarId",
                                   [NSNumber numberWithBool:event.allDay], @"allday",
+                                  event.eventIdentifier, @"id",
                                   [df stringFromDate:event.startDate], @"startDate",
                                   [df stringFromDate:event.endDate], @"endDate",
                                   [df stringFromDate:event.lastModifiedDate], @"lastModifiedDate",
@@ -555,6 +559,10 @@
         [attendees addObject:attendeeEntry];
       }
       [entry setObject:attendees forKey:@"attendees"];
+    }
+
+    if (event.recurrenceRules != nil) {
+//      [entry setObject:event.recurrenceRules forKey:@"rrule"];
     }
 
     [entry setObject:event.calendarItemIdentifier forKey:@"id"];
@@ -1067,7 +1075,7 @@
 }
 #endif
 
-/* There is no distingtion between read and write access in iOS */
+/* There is no distinction between read and write access in iOS */
 - (void)hasReadPermission:(CDVInvokedUrlCommand*)command {
   CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:(self.eventStore != nil)];
   [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];

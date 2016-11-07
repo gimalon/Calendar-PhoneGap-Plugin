@@ -65,7 +65,14 @@ function listCalendars() {
 }
 
 function createCalendar() {
-  window.plugins.calendar.createCalendar(calendarName, onSuccess, onError);
+  var options = window.plugins.calendar.getCreateCalendarOptions();
+  options.calendarName = "MyCordovaCalendar";
+  options.calendarColor = "#FF0000"; // red
+  window.plugins.calendar.createCalendar(options, onSuccess, onError);
+}
+
+function deleteCalendar() {
+  window.plugins.calendar.deleteCalendar("MyCordovaCalendar", onSuccess, onError);
 }
 
 function deleteEvent() {
@@ -94,6 +101,11 @@ function findEventWithFilter() {
 
 function findEventNoFilter() {
   window.plugins.calendar.findEvent(null, null, null, startDate, endDate, onSuccess, onError);
+}
+
+function listEventsInRange() {
+  startDate.setHours(startDate.getHours() - 12);
+  window.plugins.calendar.listEventsInRange(startDate, endDate, onSuccess, onError);
 }
 
 window.onerror = function(msg, file, line) {
