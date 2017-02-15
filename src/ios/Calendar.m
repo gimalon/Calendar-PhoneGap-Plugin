@@ -526,7 +526,7 @@
     NSMutableDictionary *entry = [[NSMutableDictionary alloc] initWithObjectsAndKeys:
                                   event.title, @"title",
                                   event.calendar.title, @"calendar",
-                                  event.calendar.title, @"calendarId",
+                                  event.calendar.calendarIdentifier, @"calendarId",
                                   [NSNumber numberWithBool:event.allDay], @"allday",
                                   event.eventIdentifier, @"id",
                                   [df stringFromDate:event.startDate], @"startDate",
